@@ -1,0 +1,526 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:i="clr-namespace:Microsoft.Xaml.Behaviors;assembly=Microsoft.Xaml.Behaviors"
+                    xmlns:ic="clr-namespace:Microsoft.Xaml.Behaviors.Core;assembly=Microsoft.Xaml.Behaviors"
+                    mc:Ignorable="d">
+
+    <!-- Section heading used by every card on the details screen -->
+    <Style x:Key="DetailsHeading" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource FontTitilliumWebBold}" />
+        <Setter Property="FontSize" Value="27" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+
+    <Style x:Key="DetailsLabel" TargetType="TextBlock" BasedOn="{StaticResource TextBlockBaseStyle}">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontTitilliumWebBold}" />
+        <Setter Property="Foreground" Value="#FF8EA0AB" />
+    </Style>
+
+    <Style x:Key="DetailsValue" TargetType="TextBlock" BasedOn="{StaticResource TextBlockBaseStyle}">
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+
+    <!-- Row in the DETAILS table -->
+    <Style x:Key="DetailsKey" TargetType="TextBlock" BasedOn="{StaticResource TextBlockBaseStyle}">
+        <Setter Property="FontSize" Value="23" />
+        <Setter Property="FontFamily" Value="{DynamicResource FontTitilliumWebBold}" />
+        <Setter Property="Foreground" Value="#FFFFC267" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="DetailsData" TargetType="TextBlock" BasedOn="{StaticResource TextBlockBaseStyle}">
+        <Setter Property="FontSize" Value="23" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Large action buttons on the details screen (Play / Options) with a bright focus ring -->
+    <Style x:Key="DetailsActionButton" TargetType="ButtonEx">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ButtonEx">
+                    <Grid>
+                        <Border x:Name="Face" CornerRadius="13"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" RecognizesAccessKey="False" />
+                        <Border x:Name="FocusRing" CornerRadius="17" Margin="-6" BorderThickness="3.5"
+                                BorderBrush="#FFEAF6FF" Visibility="Collapsed" IsHitTestVisible="False" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="{x:Type GameDetails}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type GameDetails}">
+                    <Grid x:Name="PART_ViewHost"
+                          Background="{DynamicResource MainBackgourndBrush}"
+                          d:DesignWidth="{StaticResource DesignWidth}"
+                          d:DesignHeight="{StaticResource DesignHeight}"
+                          d:DataContext="{x:Static DesignMainViewModel.DesignSelectedGameIntance}"
+                          KeyboardNavigation.DirectionalNavigation="Contained"
+                          KeyboardNavigation.TabNavigation="Cycle"
+                          KeyboardNavigation.ControlTabNavigation="Cycle">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="86" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="76" />
+                        </Grid.RowDefinitions>
+                        <i:Interaction.Triggers>
+                            <i:EventTrigger EventName="IsVisibleChanged">
+                                <i:InvokeCommandAction Command="{Binding Content.VideoPauseCommand, ElementName=ExtraMetadataLoader_VideoLoaderControl}" />
+                                <ic:ChangePropertyAction TargetObject="{Binding ElementName=TrailerState}"
+                                                         PropertyName="IsChecked" Value="False" />
+                            </i:EventTrigger>
+                        </i:Interaction.Triggers>
+
+                        <FadeImage Grid.RowSpan="3"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Top"
+                                   x:Name="PART_ImageBackground" />
+
+                        <Border Grid.RowSpan="3" Background="#22050A0E" />
+                        <Border Grid.RowSpan="3">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#D9060B10" Offset="0" />
+                                    <GradientStop Color="#66060B10" Offset="0.45" />
+                                    <GradientStop Color="#10060B10" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <Border Grid.RowSpan="3" Background="{DynamicResource GameDetailsBackgroundBrush}" />
+
+                        <!-- ================= TOP: back + library ================= -->
+                        <Grid Grid.Row="0" Margin="70,16,70,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="&#x2B05;" FontFamily="Segoe UI Symbol" FontSize="34"
+                                           Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"
+                                           Margin="0,0,14,0" />
+                                <TextBlock Text="Back" Style="{DynamicResource TextBlockBaseStyle}"
+                                           FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="32"
+                                           Foreground="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <Image Grid.Column="1" Source="{Binding LibraryPlugin.LibraryIcon}"
+                                   Height="42" Width="42" VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="Fant" />
+                        </Grid>
+
+                        <!-- ================= CONTENT ================= -->
+                        <Grid x:Name="DetailsContent" Grid.Row="1" Margin="70,0,70,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="430" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="640" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- left column: logo, cover, actions -->
+                            <StackPanel Grid.Column="0" Margin="0,0,40,0">
+                                <!-- Extra Metadata Loader logo (collapses when the plugin provides none) -->
+                                <ContentControl x:Name="ExtraMetadataLoader_LogoLoaderControl"
+                                                MaxHeight="120" HorizontalAlignment="Left" Margin="0,0,0,14">
+                                    <ContentControl.Style>
+                                        <Style TargetType="ContentControl">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Content, RelativeSource={RelativeSource Self}}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ContentControl.Style>
+                                </ContentControl>
+
+                                <Border Width="390" Height="520" CornerRadius="14" HorizontalAlignment="Left"
+                                        BorderThickness="2" BorderBrush="#AA8CC8FF" Background="#B20A1014">
+                                    <Image x:Name="PART_ImageCover" Stretch="UniformToFill"
+                                           RenderOptions.BitmapScalingMode="Fant">
+                                        <Image.Clip>
+                                            <RectangleGeometry RadiusX="12" RadiusY="12">
+                                                <RectangleGeometry.Rect>
+                                                    <MultiBinding Converter="{StaticResource MathConverter}" ConverterParameter="0, 0, [0], [1]">
+                                                        <Binding Path="ActualWidth" ElementName="PART_ImageCover" />
+                                                        <Binding Path="ActualHeight" ElementName="PART_ImageCover" />
+                                                    </MultiBinding>
+                                                </RectangleGeometry.Rect>
+                                            </RectangleGeometry>
+                                        </Image.Clip>
+                                    </Image>
+                                </Border>
+
+                                <ButtonEx x:Name="PART_ButtonContext"
+                                          Style="{StaticResource DetailsActionButton}"
+                                          Margin="0,18,0,0" Width="390" Height="66" MinWidth="0"
+                                          HorizontalAlignment="Left"
+                                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                          Padding="14,6" FontSize="34"
+                                          FontFamily="{DynamicResource FontTitilliumWebBold}"
+                                          Foreground="White"
+                                          BorderBrush="#CCCFE9FF" BorderThickness="2">
+                                    <ButtonEx.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#FF2B6BFF" Offset="0" />
+                                            <GradientStop Color="#FF3FB2FF" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </ButtonEx.Background>
+                                </ButtonEx>
+
+                                <ButtonEx x:Name="PART_ButtonOptions"
+                                          Style="{StaticResource DetailsActionButton}"
+                                          Content="{DynamicResource LOCGameOptions}"
+                                          Margin="0,12,0,0" Width="390" Height="56" MinWidth="0"
+                                          HorizontalAlignment="Left"
+                                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                          Padding="14,6" FontSize="26"
+                                          FontFamily="{DynamicResource FontTitilliumWebBold}"
+                                          Background="#CC101922" BorderBrush="#99B9C7D0" BorderThickness="1.5" />
+
+                                <!-- TRAILER: opens the in-theme player below. Hidden when the game has no trailer. -->
+                                <ButtonEx x:Name="TrailerButton"
+                                          Content="TRAILER"
+                                          Command="{Binding Content.VideoPlayCommand, ElementName=ExtraMetadataLoader_VideoLoaderControl}"
+                                          Margin="0,12,0,0" Width="390" Height="56" MinWidth="0"
+                                          HorizontalAlignment="Left"
+                                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                          Padding="14,6" FontSize="26"
+                                          FontFamily="{DynamicResource FontTitilliumWebBold}"
+                                          Background="#CC1A1030" BorderBrush="#99C27BFF" BorderThickness="1.5">
+                                    <i:Interaction.Triggers>
+                                        <!-- Click runs before the command, so the player is already on screen when playback starts -->
+                                        <i:EventTrigger EventName="Click">
+                                            <ic:ChangePropertyAction TargetObject="{Binding ElementName=TrailerState}"
+                                                                     PropertyName="IsChecked" Value="True" />
+                                        </i:EventTrigger>
+                                    </i:Interaction.Triggers>
+                                    <ButtonEx.Style>
+                                        <Style TargetType="ButtonEx" BasedOn="{StaticResource DetailsActionButton}">
+                                            <Style.Triggers>
+                                                <!-- no trailer yet / plugin missing -> no button -->
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </Trigger>
+                                                <DataTrigger Binding="{Binding Content, ElementName=ExtraMetadataLoader_VideoLoaderControl}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ButtonEx.Style>
+                                </ButtonEx>
+
+                                <TextBlock Text="&#x2605;  FAVORITE" Margin="2,14,0,0"
+                                           FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="24"
+                                           Foreground="#FFFFD451">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Favorite}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <!-- middle column: title, activity, about -->
+                            <Grid Grid.Column="1" Margin="0,2,40,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="{Binding DisplayName}"
+                                           Style="{DynamicResource TextBlockBaseStyle}"
+                                           FontFamily="{DynamicResource FontTitilliumWebBold}"
+                                           FontSize="56" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                           MaxHeight="140" Foreground="White" />
+
+                                <TextBlock Grid.Row="1" Margin="0,2,0,22"
+                                           Style="{DynamicResource TextBlockBaseStyle}"
+                                           FontSize="25" Foreground="#FFC7D3DA"
+                                           TextWrapping="Wrap" MaxHeight="76">
+                                    <Run Text="{Binding Genres, Converter={StaticResource ListToStringConverter}, ConverterParameter=', ', Mode=OneWay}" />
+                                    <Run Text="  &#x2022;  " Foreground="{DynamicResource AccentBrush}" />
+                                    <Run Text="{Binding Developers, Converter={StaticResource ListToStringConverter}, ConverterParameter=', ', Mode=OneWay}" />
+                                    <Run Text="  &#x2022;  " Foreground="{DynamicResource AccentBrush}" />
+                                    <Run Text="{Binding ReleaseYear, Mode=OneWay}" />
+                                    <Run Text="  &#x2022;  " Foreground="{DynamicResource AccentBrush}" />
+                                    <Run Text="{Binding AgeRatings, Converter={StaticResource ListToStringConverter}, ConverterParameter=', ', Mode=OneWay}" />
+                                </TextBlock>
+
+                                <!-- YOUR ACTIVITY -->
+                                <Border Grid.Row="2" Background="{DynamicResource PanelBrush}"
+                                        BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2"
+                                        CornerRadius="14" Padding="24,16,24,18">
+                                    <StackPanel>
+                                        <TextBlock Text="YOUR ACTIVITY" Style="{StaticResource DetailsHeading}" Margin="0,0,0,12" />
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,14">
+                                                <TextBlock Text="PLAY TIME" Style="{StaticResource DetailsLabel}" />
+                                                <TextBlock Text="{Binding Playtime, Converter={StaticResource PlayTimeToStringConverter}}"
+                                                           Style="{StaticResource DetailsValue}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,14">
+                                                <TextBlock Text="LAST PLAYED" Style="{StaticResource DetailsLabel}" />
+                                                <TextBlock Text="{Binding LastActivity, Converter={StaticResource DateTimeToLastPlayedConverter}}"
+                                                           Style="{StaticResource DetailsValue}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,0">
+                                                <TextBlock Text="PLAY COUNT" Style="{StaticResource DetailsLabel}" />
+                                                <TextBlock Text="{Binding PlayCount}" Style="{StaticResource DetailsValue}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="1">
+                                                <TextBlock Text="COMPLETION" Style="{StaticResource DetailsLabel}" />
+                                                <TextBlock Text="{Binding CompletionStatus.Name}" Style="{StaticResource DetailsValue}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Grid.Row="3" Text="ABOUT" Style="{StaticResource DetailsHeading}"
+                                           Margin="0,26,0,0" />
+
+                                <ScrollViewerEx Grid.Row="4" Margin="0,2,0,0" x:Name="PART_ScrollHtmlDescription">
+                                    <HtmlTextView x:Name="PART_HtmlDescription"
+                                                  HtmlFontSize="22"
+                                                  HtmlForeground="{DynamicResource TextColor}"
+                                                  LinkForeground="{DynamicResource GlyphColor}"
+                                                  FocusVisualStyle="{x:Null}" />
+                                </ScrollViewerEx>
+                            </Grid>
+
+                            <!-- right column: ratings, details, achievements -->
+                            <StackPanel Grid.Column="2" Margin="0,4,0,0">
+
+                                <!-- RATINGS -->
+                                <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource PanelBorderBrush}"
+                                        BorderThickness="1.5" CornerRadius="14" Padding="20,14,20,16" Margin="0,0,0,18">
+                                    <StackPanel>
+                                        <TextBlock Text="RATINGS" Style="{StaticResource DetailsHeading}" Margin="0,0,0,10" />
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="12" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="12" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border Grid.Column="0" CornerRadius="10" Padding="14,8" Background="#99141E26"
+                                                    BorderBrush="#4448A7FF" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="COMMUNITY" Style="{StaticResource DetailsLabel}" />
+                                                    <TextBlock Text="{Binding CommunityScore, TargetNullValue=&#x2014;}"
+                                                               Style="{StaticResource DetailsValue}"
+                                                               FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="34" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="2" CornerRadius="10" Padding="14,8" Background="#99141E26"
+                                                    BorderBrush="#4448A7FF" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="CRITIC" Style="{StaticResource DetailsLabel}" />
+                                                    <TextBlock Text="{Binding CriticScore, TargetNullValue=&#x2014;}"
+                                                               Style="{StaticResource DetailsValue}"
+                                                               FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="34" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="4" CornerRadius="10" Padding="14,8" Background="#99141E26"
+                                                    BorderBrush="#4448A7FF" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="YOU" Style="{StaticResource DetailsLabel}" />
+                                                    <TextBlock Text="{Binding UserScore, TargetNullValue=&#x2014;}"
+                                                               Style="{StaticResource DetailsValue}"
+                                                               FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="34" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- DETAILS -->
+                                <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource PanelBorderBrush}"
+                                        BorderThickness="1.5" CornerRadius="14" Padding="20,14,20,10" Margin="0,18,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="DETAILS" Style="{StaticResource DetailsHeading}" Margin="0,0,0,6" />
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Developer" Style="{StaticResource DetailsKey}" Margin="0,5" />
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource DetailsData}" Margin="0,5"
+                                                       Text="{Binding Developers, Converter={StaticResource ListToStringConverter}, ConverterParameter=', '}" />
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Publisher" Style="{StaticResource DetailsKey}" Margin="0,5" />
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource DetailsData}" Margin="0,5"
+                                                       Text="{Binding Publishers, Converter={StaticResource ListToStringConverter}, ConverterParameter=', '}" />
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Release Date" Style="{StaticResource DetailsKey}" Margin="0,5" />
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource DetailsData}" Margin="0,5"
+                                                       Text="{Binding ReleaseDate}" />
+
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Platforms" Style="{StaticResource DetailsKey}" Margin="0,5" />
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource DetailsData}" Margin="0,5"
+                                                       Text="{Binding Platforms, Converter={StaticResource ListToStringConverter}, ConverterParameter=', '}"
+                                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ACHIEVEMENTS (SuccessStory). Hidden when the plugin supplies nothing. -->
+                                <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource PanelBorderBrush}"
+                                        BorderThickness="1.5" CornerRadius="14" Padding="20,14,20,16" Margin="0,18,0,0"
+                                        Visibility="{Binding Content, ElementName=SuccessStory_PluginProgressBar, Converter={StaticResource NullToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="ACHIEVEMENTS" Style="{StaticResource DetailsHeading}" Margin="0,0,0,8" />
+                                        <ContentControl x:Name="SuccessStory_PluginProgressBar" Focusable="False" />
+                                        <ContentControl x:Name="SuccessStory_PluginCompactUnlocked" Focusable="False" Margin="0,10,0,0" MaxHeight="80" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- ================= BOTTOM HINTS ================= -->
+                        <Border Grid.Row="2" Background="{DynamicResource BottomBarBackgroundBrush}">
+                            <Grid>
+                                <Border VerticalAlignment="Top" Height="1" Background="#33FFFFFF" />
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="56,0,0,0">
+                                    <ContentControl ContentTemplate="{DynamicResource ButtonPromptA}" Height="30" Focusable="False"
+                                                    IsHitTestVisible="False" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock Text="Select" Style="{DynamicResource TextBlockBaseStyle}"
+                                               FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="26" VerticalAlignment="Center" />
+                                    <ContentControl ContentTemplate="{DynamicResource ButtonPromptB}" Height="30" Focusable="False"
+                                                    IsHitTestVisible="False" VerticalAlignment="Center" Margin="34,0,10,0" />
+                                    <TextBlock Text="Back" Style="{DynamicResource TextBlockBaseStyle}"
+                                               FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="26" VerticalAlignment="Center" />
+                                    <ContentControl ContentTemplate="{DynamicResource ButtonPromptLB}" Height="34" Focusable="False"
+                                                    IsHitTestVisible="False" VerticalAlignment="Center" Margin="34,0,0,0" />
+                                    <TextBlock Text="/" Style="{DynamicResource TextBlockBaseStyle}" FontSize="24" Foreground="#FF8EA0AB"
+                                               Margin="6,0" VerticalAlignment="Center" />
+                                    <ContentControl ContentTemplate="{DynamicResource ButtonPromptRB}" Height="34" Focusable="False"
+                                                    IsHitTestVisible="False" VerticalAlignment="Center" />
+                                    <TextBlock Text="Previous / Next Game" Style="{DynamicResource TextBlockBaseStyle}"
+                                               FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="26"
+                                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- ===== trailer player (theme-owned; the plugin's own fullscreen window has no gamepad exit) ===== -->
+                        <CheckBox x:Name="TrailerState" Visibility="Collapsed" Focusable="False" IsTabStop="False" IsChecked="False" />
+
+                        <Grid x:Name="TrailerOverlay" Grid.RowSpan="3">
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Setter Property="Opacity" Value="0" />
+                                    <Setter Property="IsHitTestVisible" Value="False" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsChecked, ElementName=TrailerState}" Value="True">
+                                            <Setter Property="Opacity" Value="1" />
+                                            <Setter Property="IsHitTestVisible" Value="True" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Border Grid.RowSpan="2" Background="#F5000000" />
+
+                            <!-- Extra Metadata Loader's player. Lives here (not collapsed) so it is always loaded and ready. -->
+                            <ContentControl x:Name="ExtraMetadataLoader_VideoLoaderControl" Grid.Row="0"
+                                            Margin="90,50,90,20" Focusable="False" IsTabStop="False" />
+
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,34">
+                                <ButtonEx x:Name="TrailerCloseButton" Content="CLOSE TRAILER"
+                                          Style="{StaticResource DetailsActionButton}"
+                                          Width="360" Height="62" MinWidth="0" Padding="14,6" FontSize="28"
+                                          FontFamily="{DynamicResource FontTitilliumWebBold}"
+                                          Foreground="White" Background="#CC101922" BorderBrush="#CCCFE9FF" BorderThickness="2"
+                                          IsEnabled="{Binding IsChecked, ElementName=TrailerState}"
+                                          FocusBahaviors.FocusBinding="{Binding IsChecked, ElementName=TrailerState}">
+                                    <i:Interaction.Triggers>
+                                        <i:EventTrigger EventName="Click">
+                                            <i:InvokeCommandAction Command="{Binding Content.VideoPauseCommand, ElementName=ExtraMetadataLoader_VideoLoaderControl}" />
+                                            <ic:ChangePropertyAction TargetObject="{Binding ElementName=TrailerState}"
+                                                                     PropertyName="IsChecked" Value="False" />
+                                        </i:EventTrigger>
+                                    </i:Interaction.Triggers>
+                                </ButtonEx>
+                                <ContentControl ContentTemplate="{DynamicResource ButtonPromptB}" Height="30" Margin="26,0,10,0"
+                                                Focusable="False" IsHitTestVisible="False" VerticalAlignment="Center" />
+                                <TextBlock Text="Back to details / list" Style="{DynamicResource TextBlockBaseStyle}"
+                                           FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="24"
+                                           Foreground="#FFC7D3DA" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <!-- details content fades in every time the screen is shown -->
+                        <Trigger Property="IsVisible" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="DetailsContent" Storyboard.TargetProperty="Opacity"
+                                                         From="0" To="1" Duration="0:0:0.26" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

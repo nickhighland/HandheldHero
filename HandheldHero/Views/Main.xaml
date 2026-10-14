@@ -1,0 +1,1336 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:i="clr-namespace:Microsoft.Xaml.Behaviors;assembly=Microsoft.Xaml.Behaviors"
+                    xmlns:ic="clr-namespace:Microsoft.Xaml.Behaviors.Core;assembly=Microsoft.Xaml.Behaviors"
+                    mc:Ignorable="d">
+
+    <!-- ===================================================================================
+         MAIN SCREEN
+
+         Tabs (quick-filter presets) decide the layout:
+           * HOME / FAVORITES / RECENT / MOST PLAYED ... -> single horizontal row, the selected
+             cover is always centred (carousel).  Main.Tag == "Carousel"
+           * ALL GAMES (and any other preset)            -> multi-row grid + A-Z position rail.
+         Both layouts share the same data, selection, focus and controller bindings: the stock
+         Playnite list (PART_ListGameItems) always owns input; in carousel mode it is kept
+         invisible and a display-only list mirrors its selection.
+         =================================================================================== -->
+
+    <!-- A-Z rail letter. The active letter gets an accent disc. -->
+    <Style x:Key="RailLetter" TargetType="Border">
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="27" />
+        <Setter Property="CornerRadius" Value="13.5" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="TextElement.Foreground" Value="#FF8EA0AB" />
+    </Style>
+
+    <!-- Small info pill in the carousel hero line (playtime, last played, favorite, installed) -->
+    <Style x:Key="HeroPill" TargetType="Border">
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Background" Value="#99081013" />
+        <Setter Property="BorderBrush" Value="#55BFD8E6" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="13,3,13,5" />
+        <Setter Property="Margin" Value="0,0,10,0" />
+    </Style>
+
+    <!-- Controller-driven PLAY button embedded on the selected carousel cover -->
+    <Style x:Key="CarouselPlayButton" TargetType="Button">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border CornerRadius="8" Height="40" BorderThickness="1.5" BorderBrush="#99CFE9FF">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#FF2B6BFF" Offset="0" />
+                                <GradientStop Color="#FF3FB2FF" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Viewbox Height="24" Margin="0,0,7,0" VerticalAlignment="Center">
+                                <ContentControl x:Name="Glyph" Focusable="False" IsHitTestVisible="False"
+                                                ContentTemplate="{DynamicResource ButtonPromptX}" />
+                            </Viewbox>
+                            <TextBlock x:Name="Label" Text="PLAY" Foreground="White" FontSize="21"
+                                       FontFamily="{DynamicResource FontTitilliumWebBold}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <DataTrigger Binding="{Binding DataContext.AppSettings.Fullscreen.SwapStartDetailsAction, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="True">
+                            <Setter TargetName="Glyph" Property="ContentTemplate" Value="{DynamicResource ButtonPromptA}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsInstalled}" Value="False">
+                            <Setter TargetName="Label" Property="Text" Value="INSTALL" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CarouselInfoButton" TargetType="Button">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border CornerRadius="8" Height="40" BorderThickness="1.5" BorderBrush="#88B9C7D0"
+                            Background="#D90B1218">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Viewbox Height="24" Margin="0,0,7,0" VerticalAlignment="Center">
+                                <ContentControl x:Name="Glyph" Focusable="False" IsHitTestVisible="False"
+                                                ContentTemplate="{DynamicResource ButtonPromptA}" />
+                            </Viewbox>
+                            <TextBlock Text="INFO" Foreground="White" FontSize="21"
+                                       FontFamily="{DynamicResource FontTitilliumWebBold}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <DataTrigger Binding="{Binding DataContext.AppSettings.Fullscreen.SwapStartDetailsAction, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="True">
+                            <Setter TargetName="Glyph" Property="ContentTemplate" Value="{DynamicResource ButtonPromptX}" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Invisible hit area (touch). Transparent but hit-testable; never takes focus. -->
+    <Style x:Key="CarouselTapZone" TargetType="Button">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="#01000000" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Carousel item: one 310 px slot per game (270 x 360 cover). The strip is shifted by SelectedIndex x 310
+         (see the list template below), so the selected cover is always exactly in the middle. -->
+    <Style x:Key="CarouselItemStyle" TargetType="ListBoxItem">
+        <Setter Property="Width" Value="310" />
+        <Setter Property="Height" Value="500" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <ControlTemplate.Resources>
+                        <Storyboard x:Key="CarouselOn">
+                            <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleX"
+                                             To="1.08" Duration="0:0:0.18" />
+                            <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleY"
+                                             To="1.08" Duration="0:0:0.18" />
+                            <DoubleAnimation Storyboard.TargetName="Tile" Storyboard.TargetProperty="Opacity"
+                                             To="1" Duration="0:0:0.18" />
+                        </Storyboard>
+                        <Storyboard x:Key="CarouselOff">
+                            <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleX"
+                                             To="0.92" Duration="0:0:0.18" />
+                            <DoubleAnimation Storyboard.TargetName="TileScale" Storyboard.TargetProperty="ScaleY"
+                                             To="0.92" Duration="0:0:0.18" />
+                            <DoubleAnimation Storyboard.TargetName="Tile" Storyboard.TargetProperty="Opacity"
+                                             To="0.8" Duration="0:0:0.18" />
+                        </Storyboard>
+                    </ControlTemplate.Resources>
+                    <Grid Background="{x:Null}">
+                      <!-- distance from the selected cover: each step to the side is a little smaller and dimmer -->
+                      <Grid x:Name="DepthHost" RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform>
+                            <ScaleTransform>
+                                <ScaleTransform.ScaleX>
+                                    <MultiBinding Converter="{StaticResource MathConverter}"
+                                                  ConverterParameter="[1] &lt; 0 ? 1 : 1 - 0.05 * Min(Abs([0] - [1]), 4)">
+                                        <Binding Path="(ItemsControl.AlternationIndex)" RelativeSource="{RelativeSource AncestorType=ListBoxItem}" />
+                                        <Binding Path="SelectedIndex" RelativeSource="{RelativeSource AncestorType=ListBox}" />
+                                    </MultiBinding>
+                                </ScaleTransform.ScaleX>
+                                <ScaleTransform.ScaleY>
+                                    <MultiBinding Converter="{StaticResource MathConverter}"
+                                                  ConverterParameter="[1] &lt; 0 ? 1 : 1 - 0.05 * Min(Abs([0] - [1]), 4)">
+                                        <Binding Path="(ItemsControl.AlternationIndex)" RelativeSource="{RelativeSource AncestorType=ListBoxItem}" />
+                                        <Binding Path="SelectedIndex" RelativeSource="{RelativeSource AncestorType=ListBox}" />
+                                    </MultiBinding>
+                                </ScaleTransform.ScaleY>
+                            </ScaleTransform>
+                        </Grid.RenderTransform>
+                        <Grid.Opacity>
+                            <MultiBinding Converter="{StaticResource MathConverter}"
+                                          ConverterParameter="[1] &lt; 0 ? 1 : 1 - 0.12 * Min(Abs([0] - [1]), 4)">
+                                <Binding Path="(ItemsControl.AlternationIndex)" RelativeSource="{RelativeSource AncestorType=ListBoxItem}" />
+                                <Binding Path="SelectedIndex" RelativeSource="{RelativeSource AncestorType=ListBox}" />
+                            </MultiBinding>
+                        </Grid.Opacity>
+                        <Grid x:Name="Tile" Width="270" Height="360"
+                              HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,40,0,0"
+                              RenderTransformOrigin="0.5,0.5" Opacity="0.8">
+                            <Grid.RenderTransform>
+                                <ScaleTransform x:Name="TileScale" ScaleX="0.92" ScaleY="0.92" />
+                            </Grid.RenderTransform>
+                            <ContentPresenter />
+                            <ContentControl Style="{DynamicResource AuroraTrace}" Margin="-5" />
+                            <!-- PLAY / INFO live on the selected cover only -->
+                            <Grid x:Name="Actions" VerticalAlignment="Bottom" Margin="10,0,10,12" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Style="{StaticResource CarouselPlayButton}"
+                                        Command="{Binding DataContext.ActivateSelectedCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                <Button Grid.Column="2" Style="{StaticResource CarouselInfoButton}"
+                                        Command="{Binding DataContext.ToggleGameDetailsCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                            </Grid>
+                        </Grid>
+                      </Grid>
+
+                      <!-- soft mirrored cover under the selected game (plain image + fade, no shader effects) -->
+                      <Grid x:Name="Reflection" Width="270" Height="70" HorizontalAlignment="Center" VerticalAlignment="Top"
+                            Margin="0,420,0,0" ClipToBounds="True" Visibility="Collapsed" IsHitTestVisible="False" Opacity="0.5">
+                        <Image Height="360" VerticalAlignment="Top" Stretch="UniformToFill" RenderTransformOrigin="0.5,0.5"
+                               Source="{Binding FullscreenListItemCoverObject, IsAsync=True}">
+                            <Image.RenderTransform>
+                                <ScaleTransform ScaleY="-1" />
+                            </Image.RenderTransform>
+                        </Image>
+                        <Border>
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#30081013" Offset="0" />
+                                    <GradientStop Color="#FF081013" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                      </Grid>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Canvas.ZIndex" Value="90" />
+                            <Setter TargetName="Reflection" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Actions" Property="Visibility" Value="Visible" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard x:Name="CarouselOnAnim" Storyboard="{StaticResource CarouselOn}" />
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <StopStoryboard BeginStoryboardName="CarouselOnAnim" />
+                                <BeginStoryboard Storyboard="{StaticResource CarouselOff}" />
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The real Playnite game list. In carousel mode it is made invisible and shrunk to a single-row
+         stand-in (still focusable, still handles A/X/Start/Enter and navigation). -->
+    <Style x:Key="MainGameListStyle" TargetType="{x:Type ListBoxEx}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType={x:Type Main}}}" Value="Carousel">
+                <Setter Property="Opacity" Value="0" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Top" />
+                <Setter Property="Width" Value="500" />
+                <!-- one row tall: 1.4 x cover height of a 500 px wide, (Columns + 0.5)-column strip -->
+                <Setter Property="Height">
+                    <Setter.Value>
+                        <MultiBinding Converter="{StaticResource MathConverter}"
+                                      ConverterParameter="700 * [2] / ([1] * ([0] + 0.5))">
+                            <Binding Path="AppSettings.Fullscreen.Columns" />
+                            <Binding Path="AppSettings.GridItemWidthRatio" />
+                            <Binding Path="AppSettings.GridItemHeightRatio" />
+                        </MultiBinding>
+                    </Setter.Value>
+                </Setter>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Stock tile panel: carousel mode flips it to a single horizontal row. Animations outrank the
+         bindings Playnite sets in code, so this works without touching the global layout settings. -->
+    <Style TargetType="{x:Type FullscreenTilePanel}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType={x:Type Main}}}" Value="Carousel">
+                <DataTrigger.EnterActions>
+                    <BeginStoryboard x:Name="CarouselRowOn">
+                        <Storyboard>
+                            <BooleanAnimationUsingKeyFrames Storyboard.TargetProperty="(FullscreenTilePanel.UseHorizontalLayout)">
+                                <DiscreteBooleanKeyFrame KeyTime="0:0:0" Value="True" />
+                            </BooleanAnimationUsingKeyFrames>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.EnterActions>
+                <DataTrigger.ExitActions>
+                    <RemoveStoryboard BeginStoryboardName="CarouselRowOn" />
+                </DataTrigger.ExitActions>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="{x:Type Main}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Main}">
+                    <Grid x:Name="PART_MainHost"
+                          d:DesignWidth="{StaticResource DesignWidth}"
+                          d:DesignHeight="{StaticResource DesignHeight}"
+                          d:DataContext="{x:Static DesignMainViewModel.DesignIntance}">
+                        <Grid x:Name="PART_ViewHost" Background="{DynamicResource MainBackgourndBrush}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <!-- Playnite restores the last used tab at start-up; always begin on the first tab (RECENT) instead. -->
+                            <i:Interaction.Triggers>
+                                <i:EventTrigger EventName="Loaded">
+                                    <ic:ChangePropertyAction TargetObject="{Binding}" PropertyName="ActiveFilterPreset"
+                                                             Value="{Binding SortedFilterFullscreenPresets[0]}" />
+                                </i:EventTrigger>
+                            </i:Interaction.Triggers>
+
+                            <!-- Playnite binds this required part to the selected game's background art. -->
+                            <!-- Same setup as Playnite's own theme (no Effect, no Stretch override): FadeImage caches
+                                 itself in a bitmap and flickers if a shader effect is layered on top of it. -->
+                            <FadeImage x:Name="PART_ImageBackground" Grid.RowSpan="3"
+                                       HorizontalAlignment="Center" VerticalAlignment="Top" />
+
+                            <Border Grid.RowSpan="3" IsHitTestVisible="False">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#40081013" Offset="0" />
+                                        <GradientStop Color="#00081013" Offset="0.22" />
+                                        <GradientStop Color="#00081013" Offset="0.50" />
+                                        <GradientStop Color="#99081013" Offset="0.80" />
+                                        <GradientStop Color="#E0081013" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+
+                            <!-- ============ TOP BAR: tabs + settings ============ -->
+                            <Grid Grid.Row="0" Background="{DynamicResource TopBarBackgroundBrush}"
+                                  Height="96">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="90" />
+                                </Grid.ColumnDefinitions>
+
+                                <FilterPresetSelector x:Name="PART_FilterPresetSelector" Grid.Column="1"
+                                                      HorizontalAlignment="Center" Margin="8,0" />
+
+                                <StackPanel Grid.Column="0" Visibility="Collapsed">
+                                    <ContentControl x:Name="PART_ElemBatteryStatus" Focusable="False" FontSize="42"
+                                                    VerticalAlignment="Center" Margin="10,0,10,0">
+                                        <ContentControl.Style>
+                                            <Style TargetType="ContentControl">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding PowerStatus.Charge}" Value="Critical">
+                                                        <Setter Property="Content" Value="{DynamicResource BatteryStatusCritical}" />
+                                                        <Setter Property="Foreground" Value="Red" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding PowerStatus.Charge}" Value="Low">
+                                                        <Setter Property="Content" Value="{DynamicResource BatteryStatusLow}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding PowerStatus.Charge}" Value="Medium">
+                                                        <Setter Property="Content" Value="{DynamicResource BatteryStatusMedium}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding PowerStatus.Charge}" Value="High">
+                                                        <Setter Property="Content" Value="{DynamicResource BatteryStatusHigh}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding PowerStatus.IsCharging}" Value="True">
+                                                        <Setter Property="Content" Value="{DynamicResource BatteryStatusCharging}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ContentControl.Style>
+                                    </ContentControl>
+
+                                    <TextBlock x:Name="PART_TextBatteryPercentage" Style="{DynamicResource TextBlockBaseStyle}"
+                                               VerticalAlignment="Center" Margin="0,0,20,0"/>
+
+                                    <TextBlock x:Name="PART_TextClock" Style="{DynamicResource TextBlockBaseStyle}"
+                                               VerticalAlignment="Center" Margin="20,0,20,0"/>
+
+                                    <ButtonEx x:Name="PART_ButtonProgramUpdate" VerticalAlignment="Center"
+                                              Margin="10,0,10,0" Height="48" MinWidth="48"
+                                              Style="{DynamicResource ButtonTopMenu}">
+                                        <ButtonEx.Content>
+                                            <TextBlock Text="&#xef08;" FontFamily="{StaticResource FontIcoFont}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2"
+                                                       Foreground="{DynamicResource GlyphLightBrush}" FontSize="30" />
+                                        </ButtonEx.Content>
+                                    </ButtonEx>
+
+                                    <ButtonEx x:Name="PART_ButtonNotifications" VerticalAlignment="Center"
+                                              Margin="10,0,10,0" Height="48" MinWidth="48">
+                                        <Button.Content>
+                                            <Grid>
+                                                <TextBlock Text="&#xeea3;" FontFamily="{StaticResource FontIcoFont}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2"
+                                                           Foreground="White" FontSize="30" />
+                                                <TextBlock Text="&#x25CF;" Foreground="{DynamicResource GlyphBrush}"
+                                                           HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                           FontSize="24" Margin="0,0,5,0" />
+                                            </Grid>
+                                        </Button.Content>
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource ButtonTopMenu}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Api Notifications.Count}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </ButtonEx>
+                                </StackPanel>
+
+                                <ButtonEx x:Name="PART_ButtonMainMenu" VerticalAlignment="Center"
+                                          HorizontalAlignment="Center"
+                                          Style="{DynamicResource ButtonTopMenu}"
+                                          Margin="10,0" Height="52" MinWidth="52"
+                                          Grid.Column="2">
+                                    <Button.Content>
+                                        <TextBlock Text="&#xf013;" FontFamily="{StaticResource FontIcoFont}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource GlyphLightBrush}" FontSize="34" />
+                                    </Button.Content>
+                                </ButtonEx>
+
+                                <!-- hairline under the bar -->
+                                <Border VerticalAlignment="Bottom" Height="1" Grid.ColumnSpan="3" Background="#33FFFFFF" />
+                            </Grid>
+
+                            <!-- ============ CONTENT ============ -->
+                            <DockPanel Grid.Row="1">
+                                <Filters x:Name="PART_ElemFilters"
+                                         DockPanel.Dock="Left" Focusable="False" />
+
+                                <FiltersAdditional x:Name="PART_ElemFiltersAdditional"
+                                                   DockPanel.Dock="Left" Focusable="False" />
+
+                                <ContentControl x:Name="PART_ContentFilterItems"
+                                                DockPanel.Dock="Left" Focusable="False" />
+
+                                <Grid ClipToBounds="False">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Section header / status line -->
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="70,24,0,8" VerticalAlignment="Center">
+                                        <Border Width="4" Height="30" CornerRadius="2" Margin="0,2,16,0"
+                                                Background="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="HeaderTitle" VerticalAlignment="Center"
+                                                   FontFamily="{DynamicResource FontTitilliumWebBold}"
+                                                   FontSize="34" Foreground="White">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text"
+                                                            Value="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}, FallbackValue=LIBRARY}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="">
+                                                            <Setter Property="Text" Value="LIBRARY" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="HOME">
+                                                            <Setter Property="Text" Value="Recent &amp; Favorites" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="RECENT">
+                                                            <Setter Property="Text" Value="RECENTLY PLAYED" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <!-- grid mode only: (342) | Sorting: Alphabetical -->
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="Carousel">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <TextBlock Style="{DynamicResource TextBlockBaseStyle}" FontSize="26"
+                                                       Foreground="#FFB4C1CA" VerticalAlignment="Center"
+                                                       Text="{Binding Items.Count, ElementName=PART_ListGameItems, StringFormat='({0})'}" />
+                                            <TextBlock Style="{DynamicResource TextBlockBaseStyle}" FontSize="26" Margin="14,0,0,0"
+                                                       Foreground="#FF6C7C87" VerticalAlignment="Center" Text="|" />
+                                            <TextBlock Style="{DynamicResource TextBlockBaseStyle}" FontSize="26" Margin="14,0,0,0"
+                                                       Foreground="#FFB4C1CA" VerticalAlignment="Center" Text="Sorting:" />
+                                            <TextBlock Style="{DynamicResource TextBlockBaseStyle}" FontSize="26" Margin="8,0,0,0"
+                                                       Foreground="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center"
+                                                       Text="{Binding AppSettings.Fullscreen.ViewSettings.SortingOrder, Converter={StaticResource SortingOrderToStringConverter}}" />
+                                            <TextBlock FontSize="20" Margin="8,2,0,0"
+                                                       FontFamily="Segoe UI Symbol"
+                                                       Foreground="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="&#x25B2;" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AppSettings.Fullscreen.ViewSettings.SortingOrderDirection}" Value="Descending">
+                                                                <Setter Property="Text" Value="&#x25BC;" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- List region (fades in whenever the tab changes) -->
+                                    <Grid Grid.Row="1" ClipToBounds="True">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="HOME">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="FAVORITES">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="FAVORITE">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="FAVOURITES">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="RECENT">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="RECENTLY PLAYED">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="RECENTLY ADDED">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="RECENT GAMES">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="MOST PLAYED">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="TOP PLAYED">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="CONTINUE PLAYING">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="ALL GAMES">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="LIBRARY">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <!-- grid mode: the stock list; carousel mode: invisible input proxy -->
+                                        <ListBoxEx x:Name="PART_ListGameItems"
+                                                   Style="{StaticResource MainGameListStyle}"
+                                                   Margin="40,0,76,0"
+                                                   KeyboardNavigation.DirectionalNavigation="Once" />
+
+                                        <!-- A-Z position rail (grid mode) -->
+                                        <Border x:Name="AlphabetRail" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Margin="0,0,16,0" IsHitTestVisible="False">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="Carousel">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="A">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="A" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="B">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="B" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="C">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="C" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="D">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="D" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="E">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="E" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="F">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="F" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="G">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="G" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="H">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="H" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="I">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="I" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="J">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="J" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="K">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="K" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="L">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="L" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="M">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="M" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="N">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="N" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="O">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="O" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="P">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="P" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="Q">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="Q" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="R">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="R" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="S">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="S" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="T">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="T" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="U">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="U" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="V">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="V" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="W">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="W" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="X">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="X" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="Y">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="Y" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="Z">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="Z" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border" BasedOn="{StaticResource RailLetter}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedGame.NameGroup}" Value="#">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="TextElement.Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="#" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="20"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- carousel mode: selected game title above the row -->
+                                        <Grid x:Name="CarouselHero" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                              Margin="0,0,0,530" IsHitTestVisible="False">
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="Carousel">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
+                                            <!-- soft radial scrim so the title stays readable on bright artwork -->
+                                            <Border Margin="-160,-110,-380,-100" IsHitTestVisible="False">
+                                                <Border.Background>
+                                                    <RadialGradientBrush Center="0.3,0.5" GradientOrigin="0.3,0.5" RadiusX="0.75" RadiusY="0.7">
+                                                        <GradientStop Color="#99081013" Offset="0" />
+                                                        <GradientStop Color="#55081013" Offset="0.55" />
+                                                        <GradientStop Color="#00081013" Offset="1" />
+                                                    </RadialGradientBrush>
+                                                </Border.Background>
+                                            </Border>
+                                            <StackPanel Margin="70,0,0,0" MaxWidth="900">
+                                                <!-- game logo from Extra Metadata Loader (empty when the game has none) -->
+                                                <ContentControl x:Name="ExtraMetadataLoader_LogoLoaderControl"
+                                                                Focusable="False" IsTabStop="False" IsHitTestVisible="False"
+                                                                HorizontalAlignment="Left" MaxHeight="150" MaxWidth="560" Margin="0,0,0,4" />
+                                                <!-- plain title, shown only while there is no logo -->
+                                                <TextBlock Text="{Binding SelectedGame.DisplayName}"
+                                                           FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="54"
+                                                           Foreground="White" TextTrimming="CharacterEllipsis">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <!-- a logo has been drawn (non-zero height) -> hide the plain title -->
+                                                                <DataTrigger Binding="{Binding ActualHeight, ElementName=ExtraMetadataLoader_LogoLoaderControl, Converter={StaticResource MathConverter}, ConverterParameter='x > 1'}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <StackPanel Orientation="Horizontal" Margin="2,2,0,0">
+                                                    <TextBlock x:Name="HeroGenres" Style="{DynamicResource TextBlockBaseStyle}" FontSize="24"
+                                                               Foreground="#FFD6E2E8" TextTrimming="CharacterEllipsis" MaxWidth="640"
+                                                               Text="{Binding SelectedGame.Genres, Converter={StaticResource ListToStringConverter}, ConverterParameter=', ', Mode=OneWay}" />
+                                                    <TextBlock FontSize="24" Foreground="#FFD6E2E8">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockBaseStyle}">
+                                                                <Setter Property="Text" Value="{Binding SelectedGame.ReleaseYear, Mode=OneWay, StringFormat='  •  {0}', TargetNullValue=''}" />
+                                                                <Style.Triggers>
+                                                                    <!-- no genres: show the year without a leading bullet -->
+                                                                    <DataTrigger Binding="{Binding Text.Length, ElementName=HeroGenres}" Value="0">
+                                                                        <Setter Property="Text" Value="{Binding SelectedGame.ReleaseYear, Mode=OneWay, TargetNullValue=''}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                                    <Border Style="{StaticResource HeroPill}">
+                                                        <TextBlock Style="{DynamicResource TextBlockBaseStyle}" FontSize="20" Foreground="White"
+                                                                   Text="{Binding SelectedGame.Playtime, Converter={StaticResource PlayTimeToStringConverter}}" />
+                                                    </Border>
+                                                    <Border Style="{StaticResource HeroPill}">
+                                                        <TextBlock Style="{DynamicResource TextBlockBaseStyle}" FontSize="20" Foreground="White"
+                                                                   Text="{Binding SelectedGame.LastActivity, Converter={StaticResource DateTimeToLastPlayedConverter}}" />
+                                                    </Border>
+                                                    <Border Style="{StaticResource HeroPill}">
+                                                        <TextBlock FontSize="20">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockBaseStyle}">
+                                                                    <Setter Property="Text" Value="Not installed" />
+                                                                    <Setter Property="Foreground" Value="#FF8CC8FF" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding SelectedGame.IsInstalled}" Value="True">
+                                                                            <Setter Property="Text" Value="Installed" />
+                                                                            <Setter Property="Foreground" Value="#FF7BE08F" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+                                                    <Border Style="{StaticResource HeroPill}">
+                                                        <Border.Visibility>
+                                                            <Binding Path="SelectedGame.Favorite" Converter="{StaticResource BooleanToVisibilityConverter}" />
+                                                        </Border.Visibility>
+                                                        <TextBlock Style="{DynamicResource TextBlockBaseStyle}" FontSize="20" Foreground="#FFFFD451"
+                                                                   Text="&#x2605; Favorite" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- carousel mode: display-only list, scaled to fit, selection always centred -->
+                                        <Viewbox x:Name="CarouselHost" Stretch="Uniform" StretchDirection="DownOnly"
+                                                 VerticalAlignment="Bottom" Margin="0,0,0,0">
+                                            <Viewbox.Style>
+                                                <Style TargetType="Viewbox">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="Carousel">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Viewbox.Style>
+                                            <Grid Width="1920" Height="500">
+                                                <!-- floor glow under the selected cover -->
+                                                <Ellipse Width="620" Height="120" HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                         Margin="0,352,0,0" IsHitTestVisible="False">
+                                                    <Ellipse.Fill>
+                                                        <RadialGradientBrush>
+                                                            <GradientStop Color="#703FA2FF" Offset="0" />
+                                                            <GradientStop Color="#223FA2FF" Offset="0.55" />
+                                                            <GradientStop Color="#003FA2FF" Offset="1" />
+                                                        </RadialGradientBrush>
+                                                    </Ellipse.Fill>
+                                                </Ellipse>
+                                                <ListBox x:Name="CarouselList" Width="1920" Height="500" AlternationCount="100000"
+                                                         Background="Transparent" BorderThickness="0"
+                                                         Focusable="False" IsTabStop="False"
+                                                         ItemsSource="{Binding GamesView.CollectionView}"
+                                                         SelectedItem="{Binding SelectedGame, Mode=OneWay}"
+                                                         IsSynchronizedWithCurrentItem="False"
+                                                         ItemContainerStyle="{StaticResource CarouselItemStyle}">
+                                                    <ListBox.Template>
+                                                        <ControlTemplate TargetType="ListBox">
+                                                            <!-- A Canvas gives the strip its full width (no layout clipping). -->
+                                                            <Canvas Width="1920" Height="500">
+                                                                <ItemsPresenter Canvas.Left="805" Canvas.Top="0" Height="500">
+                                                                    <ItemsPresenter.RenderTransform>
+                                                                        <TranslateTransform
+                                                                            X="{Binding SelectedIndex, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource MathConverter}, ConverterParameter='x &lt; 0 ? 0 : x * -310'}" />
+                                                                    </ItemsPresenter.RenderTransform>
+                                                                </ItemsPresenter>
+                                                            </Canvas>
+                                                        </ControlTemplate>
+                                                    </ListBox.Template>
+                                                    <ListBox.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Orientation="Horizontal" />
+                                                        </ItemsPanelTemplate>
+                                                    </ListBox.ItemsPanel>
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <GameListItem Style="{DynamicResource ListGameItemTemplate}" />
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+
+                                                <!-- touch: tap left / right of the centred cover to step through the row -->
+                                                <Button HorizontalAlignment="Left" Width="790" Focusable="False" IsTabStop="False"
+                                                        Style="{StaticResource CarouselTapZone}"
+                                                        Command="{Binding SelectPrevGameCommand}" />
+                                                <Button HorizontalAlignment="Right" Width="790" Focusable="False" IsTabStop="False"
+                                                        Style="{StaticResource CarouselTapZone}"
+                                                        Command="{Binding SelectNextGameCommand}" />
+                                            </Grid>
+                                        </Viewbox>
+                                    </Grid>
+                                </Grid>
+                            </DockPanel>
+
+                            <TextBlock Grid.Row="1" FontSize="40"
+                                       Text="{DynamicResource LOCNoGamesFound}"
+                                       TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockBaseStyle}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Items.Count, ElementName=PART_ListGameItems}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- ============ BOTTOM HINT BAR ============ -->
+                            <Grid Grid.Row="2" Background="{DynamicResource BottomBarBackgroundBrush}"
+                                  Height="84">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="56" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="56" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.ColumnSpan="5" VerticalAlignment="Top" Height="1" Background="#33FFFFFF" />
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!--Install-->
+                                    <ButtonEx x:Name="PART_ButtonInstall"
+                                              Style="{DynamicResource ButtonBottomMenu}"
+                                              Content="{DynamicResource LOCInstallGame}" />
+                                    <!--Play-->
+                                    <ButtonEx x:Name="PART_ButtonPlay"
+                                              Style="{DynamicResource ButtonBottomMenu}"
+                                              Content="{DynamicResource LOCPlayGame}" />
+                                    <!--Details-->
+                                    <ButtonEx x:Name="PART_ButtonDetails"
+                                              Style="{DynamicResource ButtonBottomMenu}"
+                                              Content="{DynamicResource LOCGameDetails}" />
+                                    <!--Options-->
+                                    <ButtonEx x:Name="PART_ButtonGameOptions"
+                                              Style="{DynamicResource ButtonBottomMenu}"
+                                              Content="{DynamicResource LOCGameOptions}" />
+                                    <!--Search-->
+                                    <ButtonEx x:Name="PART_ButtonSearch"
+                                              Style="{DynamicResource ButtonBottomMenu}"
+                                              Content="{DynamicResource LOCSearchLabel}" />
+                                    <!--Filter-->
+                                    <ButtonEx x:Name="PART_ButtonFilter"
+                                              Style="{DynamicResource ButtonBottomMenu}"
+                                              Content="{DynamicResource LOCFilter}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" x:Name="PART_ElemSearchActive"
+                                            VerticalAlignment="Top" HorizontalAlignment="Stretch"
+                                            Margin="0,15,0,0">
+                                    <TextBlock  FontSize="18"
+                                                TextAlignment="Center"
+                                                Style="{DynamicResource TextBlockBaseStyle}"
+                                                Text="{DynamicResource LOCGameListSearchResults}"/>
+                                    <TextBlock  Foreground="White"
+                                                TextAlignment="Center"
+                                                Style="{DynamicResource TextBlockBaseStyle}"
+                                                Text="{Binding AppSettings.Fullscreen.FilterSettings.Name}"/>
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="2" x:Name="PART_ElemExtraFilterActive"
+                                           FontSize="20"
+                                           VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                           TextAlignment="Center"
+                                           Style="{DynamicResource TextBlockBaseStyle}"
+                                           Text="{DynamicResource LOCGameListExtraFiltered}"/>
+
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <StackPanel x:Name="PART_ElemProgressIndicator" Orientation="Horizontal"
+                                                VerticalAlignment="Center" Margin="0,0,24,0">
+                                        <TextBlock x:Name="PART_TextProgressTooltip"
+                                                   Margin="0,0,15,0" FontSize="20" VerticalAlignment="Center"
+                                                   Style="{DynamicResource TextBlockBaseStyle}"/>
+                                        <ContentControl Style="{DynamicResource ProgressIndicator}" Focusable="False"
+                                                        Height="38" Width="38" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <!-- LB / RB switch the tabs -->
+                                    <ContentControl ContentTemplate="{DynamicResource ButtonPromptLB}" Height="34"
+                                                    Focusable="False" IsHitTestVisible="False" VerticalAlignment="Center" />
+                                    <TextBlock Text="/" Style="{DynamicResource TextBlockBaseStyle}" FontSize="24"
+                                               Foreground="#FF8EA0AB" Margin="6,0" VerticalAlignment="Center" />
+                                    <ContentControl ContentTemplate="{DynamicResource ButtonPromptRB}" Height="34"
+                                                    Focusable="False" IsHitTestVisible="False" VerticalAlignment="Center" />
+                                    <TextBlock Text="Tabs" Style="{DynamicResource TextBlockBaseStyle}"
+                                               FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="26"
+                                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+
+                        <GameDetails x:Name="PART_ElemGameDetails" Grid.RowSpan="3"
+                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                        <GameStatus x:Name="PART_ElemGameStatus" Grid.RowSpan="3"
+                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+                    <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="HOME">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="FAVORITES">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="FAVORITE">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="FAVOURITES">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="RECENT">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="RECENTLY PLAYED">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="RECENTLY ADDED">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="RECENT GAMES">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="MOST PLAYED">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="TOP PLAYED">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ActiveFilterPreset.Name, Converter={StaticResource StringToUpperCaseConverter}}" Value="CONTINUE PLAYING">
+            <Setter Property="Tag" Value="Carousel" />
+        </DataTrigger>
+        </Style.Triggers>
+    </Style>
+</ResourceDictionary>

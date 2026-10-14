@@ -1,0 +1,108 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Controller prompts. Face buttons are drawn as coloured discs (A green, B red, X blue, Y yellow)
+        so they read like the reference mock-ups. Shoulders, triggers and sticks keep the Xbox glyph font.
+    -->
+
+    <DataTemplate x:Key="ButtonPromptA">
+        <Grid Width="30" Height="30">
+            <Ellipse Fill="#FF2FB04A" />
+            <Ellipse Stroke="#55FFFFFF" StrokeThickness="1" />
+            <TextBlock Text="A" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="19"
+                       Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptB">
+        <Grid Width="30" Height="30">
+            <Ellipse Fill="#FFD7403C" />
+            <Ellipse Stroke="#55FFFFFF" StrokeThickness="1" />
+            <TextBlock Text="B" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="19"
+                       Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptX">
+        <Grid Width="30" Height="30">
+            <Ellipse Fill="#FF2E78E6" />
+            <Ellipse Stroke="#55FFFFFF" StrokeThickness="1" />
+            <TextBlock Text="X" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="19"
+                       Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptY">
+        <Grid Width="30" Height="30">
+            <Ellipse Fill="#FFE8B71A" />
+            <Ellipse Stroke="#55FFFFFF" StrokeThickness="1" />
+            <TextBlock Text="Y" FontFamily="{DynamicResource FontTitilliumWebBold}" FontSize="19"
+                       Foreground="#FF1B1500" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptLB">
+        <Viewbox>
+            <TextBlock FontFamily="{DynamicResource FontXboxOneController}"
+                        Foreground="{DynamicResource TextBrush}"
+                        Text="f" />
+        </Viewbox>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptRB">
+        <Viewbox>
+            <TextBlock FontFamily="{DynamicResource FontXboxOneController}"
+                        Foreground="{DynamicResource TextBrush}"
+                        Text="z" />
+        </Viewbox>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptLT">
+        <Viewbox>
+            <TextBlock FontFamily="{DynamicResource FontXboxOneController}"
+                        Foreground="{DynamicResource TextBrush}"
+                        Text="j" />
+        </Viewbox>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptRT">
+        <Viewbox>
+            <TextBlock FontFamily="{DynamicResource FontXboxOneController}"
+                        Foreground="{DynamicResource TextBrush}"
+                        Text="v" />
+        </Viewbox>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptBack">
+        <Viewbox>
+            <TextBlock FontFamily="{DynamicResource FontXboxOneController}"
+                        Foreground="{DynamicResource TextBrush}"
+                        Text="b" />
+        </Viewbox>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptStart">
+        <Viewbox>
+            <TextBlock FontFamily="{DynamicResource FontXboxOneController}"
+                        Foreground="{DynamicResource TextBrush}"
+                        Text="k" />
+        </Viewbox>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptLS">
+        <Viewbox>
+            <TextBlock FontFamily="{DynamicResource FontXboxOneController}"
+                        Foreground="{DynamicResource TextBrush}"
+                        Text="g" />
+        </Viewbox>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ButtonPromptRS">
+        <Viewbox>
+            <TextBlock FontFamily="{DynamicResource FontXboxOneController}"
+                        Foreground="{DynamicResource TextBrush}"
+                        Text="x" />
+        </Viewbox>
+    </DataTemplate>
+</ResourceDictionary>

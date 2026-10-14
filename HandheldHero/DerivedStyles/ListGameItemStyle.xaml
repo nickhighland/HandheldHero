@@ -1,0 +1,65 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    mc:Ignorable="d">
+
+    <!--
+        Item container for the stock game grid (ALL GAMES).
+        Only the selected cover is raised (1.04x, 180 ms) and framed by the Aurora Trace.
+        NOTE: Playnite parses each theme file on its own, so values are written literally here instead of
+        pointing at Constants.xaml with StaticResource.
+        Neighbouring covers keep their full size and stay visually quiet.
+    -->
+    <Style x:Key="ListGameItemStyle" TargetType="ListBoxItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <ControlTemplate.Resources>
+                        <Storyboard x:Key="SelectedOn">
+                            <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleX"
+                                             To="1.04" Duration="0:0:0.18" />
+                            <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleY"
+                                             To="1.04" Duration="0:0:0.18" />
+                        </Storyboard>
+                        <Storyboard x:Key="SelectedOff">
+                            <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleX"
+                                             To="1" Duration="0:0:0.18" />
+                            <DoubleAnimation Storyboard.TargetName="ScaleTransform" Storyboard.TargetProperty="ScaleY"
+                                             To="1" Duration="0:0:0.18" />
+                        </Storyboard>
+                    </ControlTemplate.Resources>
+                    <Grid Margin="{Settings FullscreenItemSpacingMargin}"
+                          RenderTransformOrigin="0.5,0.5"
+                          d:DataContext="{x:Static DesignMainViewModel.DesignSelectedGameIntance}">
+                        <Grid.RenderTransform>
+                            <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1" />
+                        </Grid.RenderTransform>
+
+                        <!-- identical cover size for every item -->
+                        <ContentPresenter />
+
+                        <!-- Aurora Trace selection frame (animates only while selected) -->
+                        <ContentControl Style="{DynamicResource AuroraTrace}" Margin="-5" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Canvas.ZIndex" Value="90" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard x:Name="SelectedAnimation" Storyboard="{StaticResource SelectedOn}" />
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <StopStoryboard BeginStoryboardName="SelectedAnimation" />
+                                <BeginStoryboard Storyboard="{StaticResource SelectedOff}" />
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>
