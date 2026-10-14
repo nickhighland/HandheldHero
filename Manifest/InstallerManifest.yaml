@@ -8,6 +8,6 @@ Packages:
       - Hero block with game logo (or title), genres, year and info pills
       - Depth falloff, floor glow and reflection on the carousel
       - Fade-in on tab change and on the details screen
-      - Tile badges: favorite, playing, not installed
+      - Tile badges for favorite, playing and not installed
       - Softer navigation and activation sounds
       - Trailer button on the details screen (no autoplay)
