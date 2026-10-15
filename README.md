@@ -3,7 +3,7 @@
 A gamepad-first **Fullscreen theme for [Playnite](https://playnite.link)**, built for 7" 1080p handhelds
 and couch setups. Big covers, one-button actions, and nothing that needs a mouse.
 
-![Carousel](Media/1-Carousel.png)
+![Recent carousel](Media/1-Carousel.jpg)
 
 ## Features
 
@@ -19,11 +19,11 @@ and couch setups. Big covers, one-button actions, and nothing that needs a mouse
 - Brighter, more central background art, soft tab and details fade-ins, quieter navigation sounds.
 - No pixel-shader effects anywhere, so it stays smooth on low-power hardware and over game streaming.
 
-| Library | Details |
+| All Games | Details |
 | --- | --- |
-| ![Library](Media/2-Library.png) | ![Details](Media/3-Details.png) |
+| ![All Games](Media/2-Library.jpg) | ![Details](Media/3-Details.jpg) |
 
-All screenshots use made-up parody titles and original artwork.
+Screenshots are direct captures of Handheld Hero running in Playnite with real games and library artwork.
 
 ## Install
 
